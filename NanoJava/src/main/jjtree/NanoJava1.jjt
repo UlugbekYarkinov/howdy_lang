@@ -1,0 +1,185 @@
+options {
+    STATIC=false;
+}
+
+
+PARSER_BEGIN(NanoJava)
+package de.hft_stuttgart.cpl1;
+
+import java.io.FileNotFoundException;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Set;
+import java.util.HashSet;
+
+public class NanoJava {
+    Set<String> valueSet = new HashSet<String>();
+    public static void main(String args[]) throws FileNotFoundException {
+        InputStream input = args.length==0 ? System.in : new FileInputStream(args[0]);
+        NanoJava parser = new NanoJava(input);
+        /** Main production. */
+    outer:
+        while ( true ) {
+            try {
+                SimpleNode node = parser.Script();
+                node.dump(">");
+                break;
+            }
+            catch(ParseException pe) {
+                pe.printStackTrace(System.err);
+                Token t;
+            inner:
+                while ( (t=parser.getNextToken()) != null ) {
+                    System.out.printf("Skipping token %d=%s%n", t.kind,
+                    NanoJavaConstants.tokenImage[t.kind]);
+                    if ( t.kind == EOF ) {
+                        break outer;
+                    }
+                }
+            }
+        }
+    }
+}
+PARSER_END(NanoJava)
+
+TOKEN: {
+    < INTEGER_LITERAL: <DEC_LITERAL>
+      | <OCT_LITERAL> >
+|   < #DEC_LITERAL: "0"|(["1"-"9"](["0"-"9"])*)>
+|   < #OCT_LITERAL: "0" (["0"-"7"])+>
+|   < STRING_LITERAL:  "\""
+     (
+            (~["\"","\\","\n","\r"])
+        |   ("\\" ["s","n","t","b","r","f","\\","'","\""])
+     )*
+     "\"" >
+|   <WHILE: "WHILE">
+|   <PRINT: "PRINT">
+|   <IDENT: ["A"-"Z"](["A"-"Z","0"-"9","_"])* >
+|   <ADD: "+">
+|   <SUB: "-">
+|   <MUL: "*">
+|   <DIV: "/">
+|   <MOD: "%">
+|   <LTE: "<">
+|   <LEQ: "<=">
+|   <EQU: "==">
+|   <NEQ: "!=">
+|   <GEQ: ">=">
+|   <GTE: ">">
+|   <ASS: "=">
+|   <LPAR: "(">
+|   <RPAR: ")">
+|   <LBRA: "{">
+|   <RBRA: "}">
+|   <SEMI: ";">
+|   <COMM: ",">
+}
+
+SKIP: {
+    " "
+|   "\t"
+|   "\r"
+|   "\n"
+}
+
+SimpleNode Script(): { }
+{
+    ( Statements() )?
+    <EOF>
+    {
+        return jjtThis;
+    }
+}
+
+void Statements() : { }
+{
+    ( Statement() )+
+}
+
+void Statement() : { }
+{
+    While()
+  | Print()
+  | Assignment()
+}
+
+void While() : { }
+{
+    <WHILE> <LPAR> Expression() Comparator() Expression() <RPAR>
+    <LBRA>
+         Statements()
+    <RBRA>
+}
+
+void Comparator() : { }
+{
+    <LTE> | <LEQ> | <EQU> | <NEQ> | <GEQ> | <GTE>
+}
+
+void Print() : { }
+{
+    <PRINT> PrintItem() ( <COMM > PrintItem() )* <SEMI>
+}
+
+void PrintItem() : { }
+{
+    Expression() | <STRING_LITERAL>
+}
+
+void Assignment() : { }
+{
+    Ident() <ASS> Expression() <SEMI>
+}
+
+void Ident() : { }
+{
+    <IDENT>
+}
+
+void Integer() : { }
+{
+    <INTEGER_LITERAL>
+}
+
+void Expression() : { }
+{
+    Term() ( ( AddOp() | SubOp() ) Term() )*
+}
+
+void AddOp() : { }
+{
+    <ADD> 
+}
+
+void SubOp() : { }
+{
+    <SUB> 
+}
+
+void Term() : { }
+{
+    Factor() ( ( MulOp() | DivOp() | ModOp() ) Factor() )*
+}
+
+void MulOp() : { }
+{
+    <MUL> 
+}
+
+void DivOp() : { }
+{
+    <DIV> 
+}
+
+void ModOp() : { }
+{
+    <MOD> 
+}
+
+void Factor() : { }
+{
+    <LPAR> Expression() <RPAR>
+  | Ident()
+  | Integer()
+}
